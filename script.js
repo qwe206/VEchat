@@ -21176,10 +21176,15 @@ function getPromptTraceEntries(contactId, category) {
 
 function buildProactivePrompt(contact) {
     const now = new Date();
+    const nowTs = now.getTime();
     const intervalMin = Math.max(1, Math.min(1440, parseInt(contact?.autoMessageIntervalMin ?? 30, 10) || 30));
+    const lastActiveAt = Number(contact?.lastActiveAt || 0) || 0;
+    const silenceMin = lastActiveAt
+        ? Math.max(1, Math.floor((nowTs - lastActiveAt) / 60000))
+        : intervalMin;
     const templates = State.promptScenarioTemplates || Storage.DEFAULT_PROMPT_SCENARIO_TEMPLATES;
     const vars = getScenarioPromptVars(contact, {
-        interval_min: String(intervalMin)
+        interval_min: String(silenceMin)
     });
     return renderPromptTemplate(templates.proactive || Storage.DEFAULT_PROMPT_SCENARIO_TEMPLATES.proactive, vars);
 }
