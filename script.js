@@ -381,9 +381,21 @@ function normalizeContacts(rawContacts) {
         : [];
 }
 
+function getDefaultSafeTopOffset() {
+    return window.AndroidBridge ? 30 : 0;
+}
+
 const Storage = {
     // 默认数据
-    DEFAULT_USER: { avatar: 'user', nickname: '用户', wxid: 'wxid_' + Math.random().toString(36).substr(2, 8) },
+    DEFAULT_USER: {
+        avatar: 'user',
+        nickname: '用户',
+        wxid: 'wxid_' + Math.random().toString(36).substr(2, 8),
+        gender: 'male',
+        persona: '',
+        perception: '',
+        momentsCover: ''
+    },
     DEFAULT_API_CONFIGS: [
         { id: 'default', name: '默认方案', apiUrl: 'https://api.example.com/v1/chat/completions', apiKey: '', model: 'gpt-3.5-turbo', models: [], availableModels: [], availableModelsKey: '', visionEnabled: false, streamEnabled: true, useProxy: false, proxyUrl: '' }
     ],
@@ -614,7 +626,7 @@ const Storage = {
         sendBtnHeight: 32,
         sendBtnRadius: 4,
         sendBtnFontSize: 15,
-        safeTopOffset: 30,
+        safeTopOffset: getDefaultSafeTopOffset(),
         topbarHeight: 44,
         bottombarHeight: 56,
         headerIconSize: 22,
@@ -669,7 +681,8 @@ const Storage = {
         chatInfoValueSize: 15,
         chatInfoGroupGap: 12,
         chatTimestampFontSize: 11,
-        chatTimestampGapY: 7,
+        chatTimestampGapTop: 7,
+        chatTimestampGapBottom: 7,
         cardBubbleWidth: 186,
         cardBubbleRadius: 12,
         cardVisualHeight: 102,
@@ -693,8 +706,12 @@ const Storage = {
         sceneNoteFontSize: 12,
         sceneNotePadX: 10,
         sceneNotePadY: 3,
-        sceneNoteGapY: 12,
+        sceneNoteGapTop: 12,
+        sceneNoteGapBottom: 12,
         sceneNoteStackGap: 6,
+        sceneNoteCardWidth: 0,
+        sceneNoteCardHeight: 0,
+        chatEventGapY: 10,
         sceneNoteRadius: 12,
         sceneNoteTextColor: '#8e8e93',
         sceneNoteBgColor: '#f2f2f4',
@@ -1461,6 +1478,12 @@ const Storage = {
     },
     saveMomentsSubApiConfig(config) { localStorage.setItem('wechat_moments_subapi_config', JSON.stringify(config)); },
 
+    shouldRestoreSafeTopOffset(rawPrefs) {
+        const raw = rawPrefs && typeof rawPrefs === 'object' ? rawPrefs : {};
+        const n = parseInt(raw.safeTopOffset, 10);
+        return raw._statusBarOverlayMigrated === true && Number.isFinite(n) && n === 0;
+    },
+
     normalizeUiPrefs(rawPrefs) {
         const raw = rawPrefs && typeof rawPrefs === 'object' ? rawPrefs : {};
         const d = this.DEFAULT_UI_PREFS;
@@ -1596,7 +1619,8 @@ const Storage = {
             chatInfoValueSize: clampInt(raw.chatInfoValueSize ?? d.chatInfoValueSize, 11, 20, d.chatInfoValueSize),
             chatInfoGroupGap: clampInt(raw.chatInfoGroupGap ?? d.chatInfoGroupGap, 8, 20, d.chatInfoGroupGap),
             chatTimestampFontSize: clampInt(raw.chatTimestampFontSize ?? d.chatTimestampFontSize, 9, 16, d.chatTimestampFontSize),
-            chatTimestampGapY: clampInt(raw.chatTimestampGapY ?? d.chatTimestampGapY, 2, 16, d.chatTimestampGapY),
+            chatTimestampGapTop: clampInt(raw.chatTimestampGapTop ?? raw.chatTimestampGapY ?? d.chatTimestampGapTop, 0, 20, d.chatTimestampGapTop),
+            chatTimestampGapBottom: clampInt(raw.chatTimestampGapBottom ?? raw.chatTimestampGapY ?? d.chatTimestampGapBottom, 0, 20, d.chatTimestampGapBottom),
             cardBubbleWidth: clampInt(raw.cardBubbleWidth ?? d.cardBubbleWidth, 140, 260, d.cardBubbleWidth),
             cardBubbleRadius: clampInt(raw.cardBubbleRadius ?? d.cardBubbleRadius, 4, 24, d.cardBubbleRadius),
             cardVisualHeight: clampInt(raw.cardVisualHeight ?? d.cardVisualHeight, 72, 180, d.cardVisualHeight),
@@ -1620,8 +1644,12 @@ const Storage = {
             sceneNoteFontSize: clampInt(raw.sceneNoteFontSize ?? d.sceneNoteFontSize, 10, 20, d.sceneNoteFontSize),
             sceneNotePadX: clampInt(raw.sceneNotePadX ?? d.sceneNotePadX, 4, 24, d.sceneNotePadX),
             sceneNotePadY: clampInt(raw.sceneNotePadY ?? d.sceneNotePadY, 2, 16, d.sceneNotePadY),
-            sceneNoteGapY: clampInt(raw.sceneNoteGapY ?? d.sceneNoteGapY, 2, 24, d.sceneNoteGapY),
+            sceneNoteGapTop: clampInt(raw.sceneNoteGapTop ?? raw.sceneNoteGapY ?? d.sceneNoteGapTop, 0, 32, d.sceneNoteGapTop),
+            sceneNoteGapBottom: clampInt(raw.sceneNoteGapBottom ?? raw.sceneNoteGapY ?? d.sceneNoteGapBottom, 0, 32, d.sceneNoteGapBottom),
             sceneNoteStackGap: clampInt(raw.sceneNoteStackGap ?? d.sceneNoteStackGap, 0, 20, d.sceneNoteStackGap),
+            sceneNoteCardWidth: clampInt(raw.sceneNoteCardWidth ?? d.sceneNoteCardWidth, 0, 560, d.sceneNoteCardWidth),
+            sceneNoteCardHeight: clampInt(raw.sceneNoteCardHeight ?? d.sceneNoteCardHeight, 0, 240, d.sceneNoteCardHeight),
+            chatEventGapY: clampInt(raw.chatEventGapY ?? d.chatEventGapY, 0, 20, d.chatEventGapY),
             sceneNoteRadius: clampInt(raw.sceneNoteRadius ?? d.sceneNoteRadius, 0, 24, d.sceneNoteRadius),
             sceneNoteTextColor: normalizeHex(raw.sceneNoteTextColor ?? d.sceneNoteTextColor, d.sceneNoteTextColor),
             sceneNoteBgColor: normalizeHex(raw.sceneNoteBgColor ?? d.sceneNoteBgColor, d.sceneNoteBgColor),
@@ -1647,6 +1675,14 @@ const Storage = {
             }
         }
         const raw = parsed && typeof parsed === 'object' ? parsed : {};
+        if (this.shouldRestoreSafeTopOffset(raw)) {
+            const restored = { ...raw, safeTopOffset: getDefaultSafeTopOffset(), _statusBarOverlayMigrated: false };
+            try {
+                localStorage.setItem('wechat_ui_prefs', JSON.stringify(restored));
+            } catch (e) {
+            }
+            return this.normalizeUiPrefs(restored);
+        }
         return this.normalizeUiPrefs(raw);
     },
     saveUiPrefs(prefs) {
@@ -1673,11 +1709,23 @@ const Storage = {
         const normalized = list.map((s, idx) => {
             const id = (s && typeof s.id === 'string' && s.id.trim()) ? s.id.trim() : `scheme_${idx}_${Date.now()}`;
             const name = (s && typeof s.name === 'string' && s.name.trim()) ? s.name.trim() : `方案${idx + 1}`;
-            const prefs = this.normalizeUiPrefs(s?.prefs);
+            const rawPrefs = s && s.prefs && typeof s.prefs === 'object' ? s.prefs : {};
+            const prefsSource = this.shouldRestoreSafeTopOffset(rawPrefs)
+                ? { ...rawPrefs, safeTopOffset: getDefaultSafeTopOffset(), _statusBarOverlayMigrated: false }
+                : rawPrefs;
+            const prefs = this.normalizeUiPrefs(prefsSource);
             return { id, name, prefs };
         }).filter(Boolean);
 
-        if (normalized.length > 0) return normalized;
+        if (normalized.length > 0) {
+            if (list.some((s) => this.shouldRestoreSafeTopOffset(s?.prefs))) {
+                try {
+                    localStorage.setItem('wechat_ui_schemes', JSON.stringify(normalized));
+                } catch (e) {
+                }
+            }
+            return normalized;
+        }
 
         const legacy = this.getUiPrefs();
         const base = this.normalizeUiPrefs(legacy);
@@ -2787,6 +2835,8 @@ function applyUiPrefs(prefs) {
         styleEl.id = 'wechat-ui-overrides';
         document.head.appendChild(styleEl);
     }
+    const sceneNoteCardWidth = p.sceneNoteCardWidth > 0 ? `${p.sceneNoteCardWidth}px` : 'auto';
+    const sceneNoteCardHeight = p.sceneNoteCardHeight > 0 ? `${p.sceneNoteCardHeight}px` : 'auto';
     const rootVars = [
         `--wx-accent:${accent}`,
         `--wx-chat-font-size:${p.chatFontSize}px`,
@@ -2882,7 +2932,8 @@ function applyUiPrefs(prefs) {
         `--wx-chatinfo-value:${p.chatInfoValueSize}px`,
         `--wx-chatinfo-group-gap:${p.chatInfoGroupGap}px`,
         `--wx-chat-timestamp-font:${p.chatTimestampFontSize}px`,
-        `--wx-chat-timestamp-gap-y:${p.chatTimestampGapY}px`,
+        `--wx-chat-timestamp-gap-top:${p.chatTimestampGapTop}px`,
+        `--wx-chat-timestamp-gap-bottom:${p.chatTimestampGapBottom}px`,
         `--wx-card-width:${p.cardBubbleWidth}px`,
         `--wx-card-radius:${p.cardBubbleRadius}px`,
         `--wx-card-visual-h:${p.cardVisualHeight}px`,
@@ -2906,8 +2957,12 @@ function applyUiPrefs(prefs) {
         `--wx-scene-note-font:${p.sceneNoteFontSize}px`,
         `--wx-scene-note-pad-x:${p.sceneNotePadX}px`,
         `--wx-scene-note-pad-y:${p.sceneNotePadY}px`,
-        `--wx-scene-note-gap-y:${p.sceneNoteGapY}px`,
-        `--wx-scene-note-stack-gap:${p.sceneNoteStackGap}px`,
+        `--wx-scene-note-gap-top:${p.sceneNoteGapTop}px`,
+        `--wx-scene-note-gap-bottom:${p.sceneNoteGapBottom}px`,
+        `--wx-scene-note-stack-gap:${Math.min(p.sceneNoteGapTop, p.sceneNoteGapBottom)}px`,
+        `--wx-scene-note-card-width:${sceneNoteCardWidth}`,
+        `--wx-scene-note-card-height:${sceneNoteCardHeight}`,
+        `--wx-chat-event-gap-y:${p.chatEventGapY}px`,
         `--wx-scene-note-radius:${p.sceneNoteRadius}px`,
         `--wx-scene-note-text:${p.sceneNoteTextColor}`,
         `--wx-scene-note-bg:${p.sceneNoteBgColor}`,
@@ -3189,8 +3244,11 @@ function syncUiDesignerControlsFromDraft() {
     setInput('ui-scene-note-font-size', d.sceneNoteFontSize); setVal('ui-scene-note-font-size-val', d.sceneNoteFontSize);
     setInput('ui-scene-note-pad-x', d.sceneNotePadX); setVal('ui-scene-note-pad-x-val', d.sceneNotePadX);
     setInput('ui-scene-note-pad-y', d.sceneNotePadY); setVal('ui-scene-note-pad-y-val', d.sceneNotePadY);
-    setInput('ui-scene-note-gap-y', d.sceneNoteGapY); setVal('ui-scene-note-gap-y-val', d.sceneNoteGapY);
-    setInput('ui-scene-note-stack-gap', d.sceneNoteStackGap); setVal('ui-scene-note-stack-gap-val', d.sceneNoteStackGap);
+    setInput('ui-scene-note-gap-top', d.sceneNoteGapTop); setVal('ui-scene-note-gap-top-val', d.sceneNoteGapTop);
+    setInput('ui-scene-note-gap-bottom', d.sceneNoteGapBottom); setVal('ui-scene-note-gap-bottom-val', d.sceneNoteGapBottom);
+    setInput('ui-scene-note-card-width', d.sceneNoteCardWidth); setVal('ui-scene-note-card-width-val', d.sceneNoteCardWidth > 0 ? d.sceneNoteCardWidth : '自适应');
+    setInput('ui-scene-note-card-height', d.sceneNoteCardHeight); setVal('ui-scene-note-card-height-val', d.sceneNoteCardHeight > 0 ? d.sceneNoteCardHeight : '自适应');
+    setInput('ui-chat-event-gap-y', d.chatEventGapY); setVal('ui-chat-event-gap-y-val', d.chatEventGapY);
     setInput('ui-scene-note-radius', d.sceneNoteRadius); setVal('ui-scene-note-radius-val', d.sceneNoteRadius);
     setInput('ui-scene-note-text-color', d.sceneNoteTextColor);
     setInput('ui-scene-note-bg-color', d.sceneNoteBgColor);
@@ -3285,7 +3343,8 @@ function syncUiDesignerControlsFromDraft() {
     setInput('ui-chatinfo-value-size', d.chatInfoValueSize); setVal('ui-chatinfo-value-size-val', d.chatInfoValueSize);
     setInput('ui-chatinfo-group-gap', d.chatInfoGroupGap); setVal('ui-chatinfo-group-gap-val', d.chatInfoGroupGap);
     setInput('ui-chat-timestamp-font-size', d.chatTimestampFontSize); setVal('ui-chat-timestamp-font-size-val', d.chatTimestampFontSize);
-    setInput('ui-chat-timestamp-gap-y', d.chatTimestampGapY); setVal('ui-chat-timestamp-gap-y-val', d.chatTimestampGapY);
+    setInput('ui-chat-timestamp-gap-top', d.chatTimestampGapTop); setVal('ui-chat-timestamp-gap-top-val', d.chatTimestampGapTop);
+    setInput('ui-chat-timestamp-gap-bottom', d.chatTimestampGapBottom); setVal('ui-chat-timestamp-gap-bottom-val', d.chatTimestampGapBottom);
     setInput('ui-card-bubble-width', d.cardBubbleWidth); setVal('ui-card-bubble-width-val', d.cardBubbleWidth);
     setInput('ui-card-bubble-radius', d.cardBubbleRadius); setVal('ui-card-bubble-radius-val', d.cardBubbleRadius);
     setInput('ui-card-visual-height', d.cardVisualHeight); setVal('ui-card-visual-height-val', d.cardVisualHeight);
@@ -3373,8 +3432,15 @@ function updateUiDesignerDraftAndPreview() {
         sceneNoteFontSize: readInt('ui-scene-note-font-size', uiDesignerDraft.sceneNoteFontSize),
         sceneNotePadX: readInt('ui-scene-note-pad-x', uiDesignerDraft.sceneNotePadX),
         sceneNotePadY: readInt('ui-scene-note-pad-y', uiDesignerDraft.sceneNotePadY),
-        sceneNoteGapY: readInt('ui-scene-note-gap-y', uiDesignerDraft.sceneNoteGapY),
-        sceneNoteStackGap: readInt('ui-scene-note-stack-gap', uiDesignerDraft.sceneNoteStackGap),
+        sceneNoteGapTop: readInt('ui-scene-note-gap-top', uiDesignerDraft.sceneNoteGapTop),
+        sceneNoteGapBottom: readInt('ui-scene-note-gap-bottom', uiDesignerDraft.sceneNoteGapBottom),
+        sceneNoteStackGap: Math.min(
+            readInt('ui-scene-note-gap-top', uiDesignerDraft.sceneNoteGapTop),
+            readInt('ui-scene-note-gap-bottom', uiDesignerDraft.sceneNoteGapBottom)
+        ),
+        sceneNoteCardWidth: readInt('ui-scene-note-card-width', uiDesignerDraft.sceneNoteCardWidth),
+        sceneNoteCardHeight: readInt('ui-scene-note-card-height', uiDesignerDraft.sceneNoteCardHeight),
+        chatEventGapY: readInt('ui-chat-event-gap-y', uiDesignerDraft.chatEventGapY),
         sceneNoteRadius: readInt('ui-scene-note-radius', uiDesignerDraft.sceneNoteRadius),
         sceneNoteTextColor: readColor('ui-scene-note-text-color', uiDesignerDraft.sceneNoteTextColor),
         sceneNoteBgColor: readColor('ui-scene-note-bg-color', uiDesignerDraft.sceneNoteBgColor),
@@ -3465,7 +3531,8 @@ function updateUiDesignerDraftAndPreview() {
         chatInfoValueSize: readInt('ui-chatinfo-value-size', uiDesignerDraft.chatInfoValueSize),
         chatInfoGroupGap: readInt('ui-chatinfo-group-gap', uiDesignerDraft.chatInfoGroupGap),
         chatTimestampFontSize: readInt('ui-chat-timestamp-font-size', uiDesignerDraft.chatTimestampFontSize),
-        chatTimestampGapY: readInt('ui-chat-timestamp-gap-y', uiDesignerDraft.chatTimestampGapY),
+        chatTimestampGapTop: readInt('ui-chat-timestamp-gap-top', uiDesignerDraft.chatTimestampGapTop),
+        chatTimestampGapBottom: readInt('ui-chat-timestamp-gap-bottom', uiDesignerDraft.chatTimestampGapBottom),
         cardBubbleWidth: readInt('ui-card-bubble-width', uiDesignerDraft.cardBubbleWidth),
         cardBubbleRadius: readInt('ui-card-bubble-radius', uiDesignerDraft.cardBubbleRadius),
         cardVisualHeight: readInt('ui-card-visual-height', uiDesignerDraft.cardVisualHeight),
@@ -3584,8 +3651,33 @@ function buildUiDesignerExportPayload() {
     };
 }
 
-function downloadUiDesignerConfig(payload, filename) {
-    const text = JSON.stringify(payload, null, 2);
+function canUseNativeTextExport() {
+    return !!(
+        window.AndroidBridge &&
+        typeof window.AndroidBridge.beginTextExport === 'function' &&
+        typeof window.AndroidBridge.appendTextExportChunk === 'function' &&
+        typeof window.AndroidBridge.commitTextExport === 'function'
+    );
+}
+
+function downloadTextFile(text, filename, mimeType = 'application/json') {
+    if (canUseNativeTextExport()) {
+        try {
+            window.AndroidBridge.beginTextExport(filename, mimeType);
+            const chunkSize = 240000;
+            for (let offset = 0; offset < text.length; offset += chunkSize) {
+                window.AndroidBridge.appendTextExportChunk(text.slice(offset, offset + chunkSize));
+            }
+            window.AndroidBridge.commitTextExport();
+            return 'native';
+        } catch (err) {
+            try {
+                window.AndroidBridge.cancelTextExport?.();
+            } catch (cancelErr) {
+            }
+        }
+    }
+
     const blob = new Blob([text], { type: 'application/json;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -3595,6 +3687,12 @@ function downloadUiDesignerConfig(payload, filename) {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 250);
+    return 'browser';
+}
+
+function downloadUiDesignerConfig(payload, filename) {
+    const text = JSON.stringify(payload, null, 2);
+    return downloadTextFile(text, filename, 'application/json');
 }
 
 function buildUiDesignerExportFilename() {
@@ -3737,7 +3835,7 @@ function bindUiDesignerEvents() {
 
     [
         'ui-chat-font-size', 'ui-bubble-radius', 'ui-bubble-pad-x', 'ui-bubble-pad-y', 'ui-message-gap', 'ui-content-max',
-        'ui-scene-note-font-size', 'ui-scene-note-pad-x', 'ui-scene-note-pad-y', 'ui-scene-note-gap-y', 'ui-scene-note-stack-gap', 'ui-scene-note-radius',
+        'ui-scene-note-font-size', 'ui-scene-note-pad-x', 'ui-scene-note-pad-y', 'ui-scene-note-gap-top', 'ui-scene-note-gap-bottom', 'ui-scene-note-card-width', 'ui-scene-note-card-height', 'ui-chat-event-gap-y', 'ui-scene-note-radius',
         'ui-avatar-size', 'ui-avatar-radius', 'ui-avatar-gap', 'ui-avatar-left-x', 'ui-avatar-left-y', 'ui-avatar-right-x', 'ui-avatar-right-y',
         'ui-primary-btn-h', 'ui-primary-btn-w', 'ui-primary-btn-radius', 'ui-primary-btn-pad-x', 'ui-primary-btn-font',
         'ui-chat-inputbar-h', 'ui-chat-inputbar-px', 'ui-chat-inputbar-py', 'ui-chat-inputbar-gap',
@@ -3747,7 +3845,7 @@ function bindUiDesignerEvents() {
         'ui-list-pad-y', 'ui-chatlist-avatar', 'ui-chatlist-avatar-radius', 'ui-contact-icon', 'ui-contact-icon-radius',
         'ui-text-scale', 'ui-home-title-size', 'ui-home-title-x', 'ui-home-title-y', 'ui-main-title-size', 'ui-main-title-x', 'ui-main-title-y', 'ui-sub-title-size', 'ui-sub-title-x', 'ui-sub-title-y', 'ui-chatlist-name-size', 'ui-chatlist-preview-size', 'ui-chatlist-time-size', 'ui-contact-name-size', 'ui-contact-name-y', 'ui-discover-name-size', 'ui-discover-name-y', 'ui-me-name-size', 'ui-me-name-y', 'ui-discover-icon', 'ui-me-icon',
         'ui-wallet-hero-radius', 'ui-wallet-hero-icon-size', 'ui-wallet-hero-title-size', 'ui-wallet-hero-sub-size', 'ui-wallet-service-card-radius', 'ui-wallet-service-icon-size', 'ui-wallet-service-label-size', 'ui-wallet-detail-title-size', 'ui-wallet-detail-value-size', 'ui-wallet-amount-size',
-        'ui-chatinfo-avatar-size', 'ui-chatinfo-avatar-radius', 'ui-chatinfo-name-size', 'ui-chatinfo-cell-height', 'ui-chatinfo-title-size', 'ui-chatinfo-value-size', 'ui-chatinfo-group-gap', 'ui-chat-timestamp-font-size', 'ui-chat-timestamp-gap-y',
+        'ui-chatinfo-avatar-size', 'ui-chatinfo-avatar-radius', 'ui-chatinfo-name-size', 'ui-chatinfo-cell-height', 'ui-chatinfo-title-size', 'ui-chatinfo-value-size', 'ui-chatinfo-group-gap', 'ui-chat-timestamp-font-size', 'ui-chat-timestamp-gap-top', 'ui-chat-timestamp-gap-bottom',
         'ui-card-bubble-width', 'ui-card-bubble-radius', 'ui-card-visual-height', 'ui-card-desc-font-size',
         'ui-moments-cover-height', 'ui-moments-name-size', 'ui-moments-text-size', 'ui-moments-meta-size', 'ui-moments-compose-text-size', 'ui-moments-compose-action-size', 'ui-moments-compose-card-radius', 'ui-moments-compose-cell-height', 'ui-moments-compose-image-size', 'ui-moments-compose-image-radius', 'ui-moments-compose-add-icon-size',
         'ui-danger-btn-h', 'ui-danger-btn-w', 'ui-danger-btn-radius', 'ui-danger-btn-pad-x', 'ui-danger-btn-font',
@@ -3872,8 +3970,8 @@ function bindUiDesignerEvents() {
 
     document.getElementById('ui-scheme-export-btn')?.addEventListener('click', () => {
         const payload = buildUiDesignerExportPayload();
-        downloadUiDesignerConfig(payload, buildUiDesignerExportFilename());
-        showToast('UI 配置已导出');
+        const mode = downloadUiDesignerConfig(payload, buildUiDesignerExportFilename());
+        showToast(mode === 'native' ? '请选择保存位置' : 'UI 配置已导出');
     });
 
     document.getElementById('ui-scheme-import-btn')?.addEventListener('click', async () => {
@@ -4326,7 +4424,17 @@ function buildPrivateSessionFromContact(contact) {
 }
 
 function syncPrivateSessionsFromContacts() {
-    const sessionMap = new Map((State.sessions || []).map((s) => [String(s.id || ''), s]));
+    const validPrivateIds = new Set((State.contacts || []).map((contact) => getPrivateSessionId(contact?.id)).filter(Boolean));
+    const sessionMap = new Map(
+        (State.sessions || [])
+            .filter((session) => {
+                if (!session) return false;
+                if (isGroupSession(session)) return true;
+                const privateId = getPrivateSessionId(session.contactId || session.id);
+                return validPrivateIds.has(privateId);
+            })
+            .map((s) => [String(s.id || ''), s])
+    );
     (State.contacts || []).forEach((contact) => {
         const next = buildPrivateSessionFromContact(contact);
         if (!next) return;
@@ -10190,12 +10298,14 @@ function initUserUI() {
     // 更新用户显示
     const meAvatar = document.getElementById('me-avatar');
     const meNickname = document.getElementById('me-nickname');
+    const meWxid = document.getElementById('me-wxid');
     const momentsAvatar = document.getElementById('moments-avatar');
     const momentsUsername = document.getElementById('moments-username');
     const momentsCover = document.getElementById('moments-cover');
 
     if (meAvatar) meAvatar.innerHTML = getAvatarHtml(State.user.avatar);
     if (meNickname) meNickname.textContent = State.user.nickname;
+    if (meWxid) meWxid.textContent = `微信号: ${String(State.user.wxid || '')}`;
     if (momentsAvatar) momentsAvatar.innerHTML = getAvatarHtml(State.user.avatar);
     if (momentsUsername) momentsUsername.textContent = State.user.nickname;
     if (momentsCover) {
@@ -10209,6 +10319,17 @@ function initMePage() {
     const profileUrl = document.getElementById('profile-avatar-url');
     const profilePreview = document.getElementById('profile-avatar-preview');
     const profileValue = document.getElementById('profile-avatar-value');
+    const profileNicknameInput = document.getElementById('profile-nickname');
+    const profileWxidInput = document.getElementById('profile-wxid');
+    const userPersonaInput = document.getElementById('user-persona');
+    const userPerceptionInput = document.getElementById('user-perception');
+    const profileGenderOptions = Array.from(document.querySelectorAll('#profile-page .gender-option'));
+    const setProfileGender = (gender) => {
+        const nextGender = String(gender || State.user?.gender || 'male');
+        profileGenderOptions.forEach(opt => {
+            opt.classList.toggle('selected', opt.dataset.gender === nextGender);
+        });
+    };
 
     profileUpload?.addEventListener('change', async (e) => {
         const file = e.target.files[0];
@@ -10230,6 +10351,12 @@ function initMePage() {
         }
     });
 
+    profileGenderOptions.forEach(opt => {
+        opt.addEventListener('click', () => {
+            setProfileGender(opt.dataset.gender);
+        });
+    });
+
     // 用户资料
     document.getElementById('user-profile-entry')?.addEventListener('click', () => {
         showPage('profile-page');
@@ -10238,10 +10365,11 @@ function initMePage() {
         if (profilePreview) profilePreview.innerHTML = getAvatarHtml(State.user.avatar);
         if (profileUrl) profileUrl.value = '';
         
-        document.getElementById('profile-nickname').value = State.user.nickname;
-        document.getElementById('profile-wxid').value = State.user.wxid;
-        document.getElementById('user-persona').value = State.user.persona || '';
-        document.getElementById('user-perception').value = State.user.perception || '';
+        if (profileNicknameInput) profileNicknameInput.value = String(State.user.nickname || '');
+        if (profileWxidInput) profileWxidInput.value = String(State.user.wxid || '');
+        if (userPersonaInput) userPersonaInput.value = String(State.user.persona || '');
+        if (userPerceptionInput) userPerceptionInput.value = String(State.user.perception || '');
+        setProfileGender(State.user.gender || 'male');
     });
 
     document.getElementById('profile-back-btn')?.addEventListener('click', () => {
@@ -10250,9 +10378,11 @@ function initMePage() {
 
     document.getElementById('save-profile-btn')?.addEventListener('click', () => {
         State.user.avatar = profileValue ? cloneStoredImageValue(profileValue.value) : '';
-        State.user.nickname = document.getElementById('profile-nickname').value || '用户';
-        State.user.persona = document.getElementById('user-persona').value || '';
-        State.user.perception = document.getElementById('user-perception').value || '';
+        State.user.nickname = String(profileNicknameInput?.value || '').trim() || '用户';
+        State.user.wxid = String(profileWxidInput?.value || '').trim();
+        State.user.persona = String(userPersonaInput?.value || '').trim();
+        State.user.perception = String(userPerceptionInput?.value || '').trim();
+        State.user.gender = profileGenderOptions.find(opt => opt.classList.contains('selected'))?.dataset.gender || 'male';
         Storage.saveUser(State.user);
         initUserUI();
         hidePage('profile-page');
@@ -10630,15 +10760,7 @@ function initMePage() {
 
     const downloadJson = (obj, filename) => {
         const text = JSON.stringify(obj, null, 2);
-        const blob = new Blob([text], { type: 'application/json;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 250);
+        return downloadTextFile(text, filename, 'application/json');
     };
 
     const reloadAllFromStorageAndRefreshUI = () => {
@@ -10716,8 +10838,8 @@ function initMePage() {
         const payload = await buildBackupPayload(groups);
         const ts = new Date();
         const name = `wechat_backup_${ts.getFullYear()}${String(ts.getMonth() + 1).padStart(2, '0')}${String(ts.getDate()).padStart(2, '0')}_${String(ts.getHours()).padStart(2, '0')}${String(ts.getMinutes()).padStart(2, '0')}.json`;
-        downloadJson(payload, name);
-        showToast('已导出');
+        const mode = downloadJson(payload, name);
+        showToast(mode === 'native' ? '请选择保存位置' : '已导出');
     });
 
     document.getElementById('backup-sync-legacy-btn')?.addEventListener('click', async () => {
@@ -11355,15 +11477,7 @@ function initStickerStorePage() {
 
 function downloadJsonFile(payload, filename) {
     const text = JSON.stringify(payload, null, 2);
-    const blob = new Blob([text], { type: 'application/json;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 250);
+    return downloadTextFile(text, filename, 'application/json');
 }
 
 function sanitizeFilenamePart(text, fallback = 'stickers') {
@@ -11492,8 +11606,8 @@ function exportStickerLibraries(libraries, filename) {
         showToast('暂无可导出的表情包');
         return;
     }
-    downloadJsonFile(payload, filename || buildStickerExportFilename(list[0]?.name || '表情包'));
-    showToast(`已导出 ${list.length} 个表情包`);
+    const mode = downloadJsonFile(payload, filename || buildStickerExportFilename(list[0]?.name || '表情包'));
+    showToast(mode === 'native' ? '请选择保存位置' : `已导出 ${list.length} 个表情包`);
 }
 
 function importStickerLibrary(name, content) {
@@ -14667,13 +14781,24 @@ function deleteRole() {
         ].includes(activePageId);
 
         State.contacts = State.contacts.filter(c => c.id !== id);
+        State.sessions = (State.sessions || []).filter((session) => {
+            if (!session) return false;
+            if (isGroupSession(session)) return true;
+            return String(session.contactId || session.id || '') !== String(id);
+        });
         delete State.chatHistories[id];
+        State.favorites = (State.favorites || []).filter((item) => String(item?.contactId || '') !== String(id));
         if (String(State.currentContactId || '') === String(id)) {
             State.currentContactId = null;
         }
+        if (String(State.currentSessionId || '') === String(id)) {
+            State.currentSessionId = null;
+        }
 
         Storage.saveContacts(State.contacts);
+        Storage.saveSessions(State.sessions);
         Storage.saveChatHistories(State.chatHistories);
+        persistFavorites();
 
         closeRoleModal();
         initContactsList();
@@ -18078,9 +18203,6 @@ function addMessageToUI(content, side, avatar, index = -1, options = {}) {
                     if (st === 'refunded') {
                         footer = side === 'right' ? '微信红包 · 已退还' : '微信红包';
                     }
-                    if (isClaimed) {
-                        wxMoneyNote = side === 'right' ? '对方已领取你的红包' : '你已领取对方发送的红包';
-                    }
                     displayContent = isClaimed
                         ? `<div class="msg-redpacket"><div class="rp-main"><div class="rp-icon"><i class="fas fa-envelope"></i></div><div class="rp-info"><div class="rp-title">${escapeHtml(remark)}</div><div class="rp-status">已领取</div></div></div></div><div class="rp-footer">${footer}</div>`
                         : `<div class="msg-redpacket"><div class="rp-main"><div class="rp-icon"><i class="fas fa-envelope"></i></div><div class="rp-info"><div class="rp-title">${escapeHtml(remark)}</div><div class="rp-status">领取红包</div></div></div></div><div class="rp-footer">${footer}</div>`;
@@ -18096,9 +18218,6 @@ function addMessageToUI(content, side, avatar, index = -1, options = {}) {
                     const isReceived = st === 'received';
                     if (st === 'refunded') {
                         footer = side === 'right' ? '微信转账 · 已退还' : '微信转账';
-                    }
-                    if (isReceived) {
-                        wxMoneyNote = side === 'right' ? '对方已接收你的转账' : '你已接收对方的转账';
                     }
                     displayContent = `<div class="msg-transfer"><div class="tf-icon"><i class="fas fa-exchange-alt"></i></div><div class="tf-info"><div class="tf-amount">${escapeHtml(amount)}</div><div class="tf-remark">${escapeHtml(remark)}</div></div></div><div class="tf-footer">${footer}</div>`;
                     customClass = `transfer-bubble${isReceived ? ' wx-money-done' : ''}`;
@@ -18628,6 +18747,7 @@ function addSystemMessage(text) {
         try { parsed = JSON.parse(raw); } catch (e) {}
     }
     if (parsed && typeof parsed === 'object' && String(parsed.type || '') === 'event') {
+        div.classList.add('chat-event-row');
         const display = String(parsed.display || parsed.aiText || raw);
         div.textContent = display;
         if (String(parsed.event || '') === 'recall' && String(parsed.actor || '') === 'assistant') {
@@ -18998,14 +19118,15 @@ function markOutgoingWxMoneyAccepted(historyId, kind, options = {}) {
     }
     const actorName = String(options.actorName || '').trim();
     const eventPayload = buildWxMoneyAcceptEventPayload(kind, actorName || '对方', 'assistant');
+    const previewText = eventPayload.display;
     appendSystemHistoryEvent(id, JSON.stringify(eventPayload), { render: false });
-    syncChatPreviewFromHistory(id, eventPayload.display);
+    syncChatPreviewFromHistory(id, previewText);
     if (String(getActiveChatId() || '') === id) {
         renderChatMessages();
     }
     initChatList();
     renderGroupSessionsList();
-    return { ...hit.parsed.wxMoney, eventDisplay: eventPayload.display };
+    return { ...hit.parsed.wxMoney, eventDisplay: previewText };
 }
 
 function startIncomingCallFromAI(contact, callType) {
@@ -22966,12 +23087,12 @@ function showRedPacketDetail(content, side, index, options = {}) {
 
     const renderDone = () => `
         <div style="height:100%; display:flex; flex-direction:column; background:#fff; position:relative;">
-            <div style="position:absolute; top:20px; left:14px; z-index:10;">
+            <div style="position:absolute; top:calc(var(--wx-safe-top) + 8px); left:14px; z-index:10;">
                 <button id="wx-rp-back" type="button" style="width:34px; height:34px; border:none; background:transparent; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#f7e1b5;">
                     <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </button>
             </div>
-            <div style="height:120px; background:#eb5442; border-bottom-left-radius:50% 20px; border-bottom-right-radius:50% 20px;"></div>
+            <div style="height:calc(120px + var(--wx-safe-top)); background:#eb5442; border-bottom-left-radius:50% 20px; border-bottom-right-radius:50% 20px;"></div>
             <div style="position:relative; margin-top:-20px; display:flex; flex-direction:column; align-items:center; padding:0 20px;">
                 <div style="width:48px; height:48px; border-radius:4px; background:#fff; overflow:hidden; margin-bottom:12px; box-shadow:0 2px 8px rgba(0,0,0,0.1); display:flex; align-items:center; justify-content:center;">
                     ${senderAvatarHtml}
@@ -23076,7 +23197,7 @@ function showTransferDetail(content, side, index, options = {}) {
 
     const renderPending = () => `
         <div style="height:100%; display:flex; flex-direction:column; background:#fff;">
-            <div style="height:56px; display:flex; align-items:center; padding:0 14px;">
+            <div style="height:calc(56px + var(--wx-safe-top)); display:flex; align-items:center; padding:var(--wx-safe-top) 14px 0; box-sizing:border-box;">
                 <button id="wx-transfer-back" type="button" style="width:34px; height:34px; border:none; background:transparent; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
                     <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M14.5 5.5 L8 12 L14.5 18.5" fill="none" stroke="#1a1a1a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </button>
@@ -23107,7 +23228,7 @@ function showTransferDetail(content, side, index, options = {}) {
 
     const renderDone = () => `
         <div style="height:100%; display:flex; flex-direction:column; background:#fff;">
-            <div style="height:56px; display:flex; align-items:center; padding:0 14px;">
+            <div style="height:calc(56px + var(--wx-safe-top)); display:flex; align-items:center; padding:var(--wx-safe-top) 14px 0; box-sizing:border-box;">
                 <button id="wx-transfer-back" type="button" style="width:34px; height:34px; border:none; background:transparent; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
                     <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M14.5 5.5 L8 12 L14.5 18.5" fill="none" stroke="#1a1a1a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </button>
