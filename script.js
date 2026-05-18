@@ -1525,7 +1525,7 @@ const Storage = {
         const fontDataKey = typeof raw.fontDataKey === 'string' ? raw.fontDataKey.trim() : '';
         const fontFamilyName = typeof raw.fontFamilyName === 'string' ? raw.fontFamilyName.trim() : '';
 
-        return {
+        const normalized = {
             chatFontSize: clampInt(raw.chatFontSize ?? d.chatFontSize, 12, 22, d.chatFontSize),
             bubbleRadius: clampInt(raw.bubbleRadius ?? d.bubbleRadius, 0, 22, d.bubbleRadius),
             bubblePadX: clampInt(raw.bubblePadX ?? d.bubblePadX, 6, 26, d.bubblePadX),
@@ -1662,6 +1662,16 @@ const Storage = {
             fontDataKey,
             fontFamilyName
         };
+
+        // Keep manually entered numeric values even when they exceed the slider's visual range.
+        Object.keys(d).forEach((key) => {
+            if (!Object.prototype.hasOwnProperty.call(raw, key)) return;
+            if (typeof d[key] !== 'number') return;
+            const parsed = Number.isInteger(d[key]) ? parseInt(raw[key], 10) : parseFloat(raw[key]);
+            if (Number.isFinite(parsed)) normalized[key] = parsed;
+        });
+
+        return normalized;
     },
 
     getUiPrefs() {
@@ -2104,6 +2114,94 @@ const Storage = {
         this.setMigratedStateCacheValue('summaryVectors', normalized);
         this.queueMigratedStateWrite('summaryVectors', normalized);
         return true;
+    },
+    async resetAllAppData() {
+        if (typeof this.flushChatHistories === 'function') {
+            this.flushChatHistories();
+        }
+        if (typeof this.waitForPendingMigratedStateWrites === 'function') {
+            await this.waitForPendingMigratedStateWrites();
+        }
+
+        const closeDbPromise = async (key) => {
+            const promise = this[key];
+            this[key] = null;
+            if (!promise) return;
+            try {
+                const db = await promise;
+                db?.close?.();
+            } catch (e) {
+            }
+        };
+        await Promise.all([
+            closeDbPromise('_appStateDbPromise'),
+            closeDbPromise('_uiFontDbPromise'),
+            closeDbPromise('_mediaDbPromise')
+        ]);
+
+        const deleteDb = (name) => new Promise((resolve) => {
+            if (typeof indexedDB === 'undefined' || !name) {
+                resolve(true);
+                return;
+            }
+            let settled = false;
+            const finish = (ok) => {
+                if (settled) return;
+                settled = true;
+                resolve(ok);
+            };
+            try {
+                const req = indexedDB.deleteDatabase(name);
+                req.onsuccess = () => finish(true);
+                req.onerror = () => finish(false);
+                req.onblocked = () => {
+                    setTimeout(() => finish(false), 1200);
+                };
+            } catch (e) {
+                finish(false);
+            }
+        });
+
+        Object.keys(this.getUiFonts() || {}).forEach((key) => {
+            this.revokeUiFontRuntimeUrl(key);
+        });
+        if (this._mediaObjectUrls && typeof this._mediaObjectUrls === 'object') {
+            Object.keys(this._mediaObjectUrls).forEach((key) => {
+                this.revokeMediaRuntimeUrl(key);
+            });
+        }
+        this._uiFontRuntime = {};
+        this._uiFontObjectUrls = {};
+        this._mediaRuntime = {};
+        this._mediaObjectUrls = {};
+        this._mediaDataUrlCache = {};
+
+        const localKeys = [];
+        try {
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = String(localStorage.key(i) || '');
+                if (key.startsWith('wechat_')) localKeys.push(key);
+            }
+        } catch (e) {
+        }
+        localKeys.forEach((key) => {
+            try {
+                localStorage.removeItem(key);
+            } catch (e) {
+            }
+        });
+
+        this._migratedStateCache = {};
+        this._migratedStateReady = false;
+        this._migratedStateReadyPromise = null;
+        this._migratedStatePendingWrites = {};
+
+        const results = await Promise.all([
+            deleteDb(this.APP_STATE_IDB_DB),
+            deleteDb(this.UI_FONT_IDB_DB),
+            deleteDb(this.MEDIA_IDB_DB)
+        ]);
+        return results.every(Boolean);
     }
 };
 
@@ -3227,7 +3325,17 @@ function syncUiDesignerControlsFromDraft() {
         const numEl = getUiDesignerNumberInput(id);
         if (numEl) {
             numEl.value = String(v);
-            numEl.dataset.inputMode = 'range';
+            if (el?.type === 'range') {
+                const n = parseFloat(v);
+                const min = parseFloat(el.min);
+                const max = parseFloat(el.max);
+                const inRange = Number.isFinite(n)
+                    && (!Number.isFinite(min) || n >= min)
+                    && (!Number.isFinite(max) || n <= max);
+                numEl.dataset.inputMode = inRange ? 'range' : 'number';
+            } else {
+                numEl.dataset.inputMode = 'number';
+            }
         }
     };
 
@@ -10916,6 +11024,45 @@ function initMePage() {
         const ok = await WeChatUI.showConfirm('导入数据', '将从文件导入，并覆盖你勾选的模块数据。确定继续吗？', '导入', '取消', true);
         if (!ok) return;
         document.getElementById('backup-import-file')?.click();
+    });
+
+    document.getElementById('factory-reset-btn')?.addEventListener('click', async () => {
+        const btn = document.getElementById('factory-reset-btn');
+        if (!btn || btn.disabled) return;
+        const ok = await WeChatUI.showConfirm(
+            '恢复出厂',
+            '这会清除本地保存的用户资料、聊天记录、朋友圈、钱包、提示词、UI 配置、本地图片和字体等全部记录，且无法恢复。确定继续吗？',
+            '全部清除',
+            '取消',
+            true
+        );
+        if (!ok) return;
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.dataset.busy = '1';
+        btn.setAttribute('aria-busy', 'true');
+        btn.style.opacity = '0.7';
+        btn.style.cursor = 'not-allowed';
+        try {
+            showLoading('正在清除全部本地记录...');
+            const cleared = await Storage.resetAllAppData();
+            if (!cleared) {
+                throw new Error('factory-reset-blocked');
+            }
+            showLoading('清除完成，正在重载...');
+            setTimeout(() => {
+                window.location.reload();
+            }, 120);
+        } catch (err) {
+            hideLoading();
+            showToast('清除失败，请稍后重试');
+            btn.disabled = false;
+            btn.dataset.busy = '0';
+            btn.setAttribute('aria-busy', 'false');
+            btn.style.opacity = '';
+            btn.style.cursor = '';
+            btn.textContent = originalText;
+        }
     });
 
     document.getElementById('backup-import-file')?.addEventListener('change', async (e) => {

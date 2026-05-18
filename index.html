@@ -1545,10 +1545,14 @@
                     <button class="btn-primary" id="backup-export-selected-btn">导出选中模块</button>
                     <button class="btn-primary" id="backup-import-btn" style="margin-top: 10px; background:#2782d7;">导入（覆盖勾选模块）</button>
                     <button class="btn-primary" id="backup-sync-legacy-btn" style="margin-top: 10px; background:#e67e22;">修复：把旧本地数据同步到数据库</button>
+                    <button class="btn-danger" id="factory-reset-btn" style="margin-top: 10px;">清除所有记录（恢复出厂）</button>
                     <input type="file" id="backup-import-file" accept="application/json" style="display:none">
                 </div>
                 <div class="hint-text" style="margin: 10px 2px 0; color:#888; line-height: 1.6;">
                     上面这个“修复”按钮会把旧版 localStorage 里的联系人、会话列表、聊天记录、收藏、总结历史、总结向量、朋友圈、世界书、表情包库、钱包、提示词模块、场景模板、全局提示词，覆盖写入主 IndexedDB。
+                </div>
+                <div class="hint-text" style="margin: 10px 2px 0; color:#fa5151; line-height: 1.6;">
+                    “清除所有记录（恢复出厂）”会删除本地保存的资料、聊天、朋友圈、钱包、提示词、UI 配置、本地图片/字体等全部数据，且无法恢复。
                 </div>
             </div>
         </div>
